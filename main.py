@@ -7,7 +7,7 @@ psi0[0] = 1.0
 
 '''
 #initiate project1 Stimulated Raman transition
-project = OpticalBlochEquation3(Omega1=6.76,Omega2=2.36,Delta=0.01,delta=19.21,Gamma1=0.2,Gamma2=0.25,tmax=1.81,init_state=psi0)
+project = OpticalBlochEquation3(Omega1=6.76,Omega2=2.36,Delta=0.01,delta=19.21,Gamma1=0.2,Gamma2=0.25,GammaC=5.0,tmax=1.81,init_state=psi0)
 
 #Calculating it's trajectory
 project.Trajectory()
@@ -61,7 +61,7 @@ project3.makePyvista()
 
 ###
 
-
+'''
 #initiate project4 Quantum JUMP
 psi00 = (1/2)*np.array([1,1,np.sqrt(2)])
 
@@ -72,3 +72,4 @@ project4.Trajectory()
 project4.makePlot()
 
 #project4.makePyvista()
+'''

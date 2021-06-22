@@ -1,14 +1,3 @@
-import numpy as np
-from numpy import pi
-import matplotlib
-import matplotlib.pyplot as plt
-import pyvista as pv
-from pyvista import examples
-from scipy.linalg import kron, eig
-import time
-import matplotlib.colors as mcolors
-matplotlib.rcParams['text.usetex'] = True
-from string import ascii_lowercase
 
 def Dissipator(sigma):
     d = np.shape(sigma)[0]
@@ -20,13 +9,14 @@ def Dissipator(sigma):
 
 class OpticalBlochEquation3:
     ### init ###
-    def __init__(self,Omega1,Omega2,Delta,delta,Gamma1,Gamma2,tmax,init_state):
+    def __init__(self,Omega1,Omega2,Delta,delta,Gamma1,Gamma2,GammaC,tmax,init_state):
         self.Omega1 = Omega1
         self.Omega2 = Omega2
         self.Delta = Delta
         self.delta = delta
         self.Gamma1 = Gamma1
         self.Gamma2 = Gamma2
+        self.GammaC = GammaC
         self.tmax = tmax
         self.init_state = np.mat(init_state.reshape(9,1)) #matrix array
         #define radius
@@ -38,6 +28,7 @@ class OpticalBlochEquation3:
         #define matrices
         self.sigma1 = self.g1.T*self.e
         self.sigma2 = self.g2.T*self.e
+        self.sigmaC = self.g2.T*self.g2 - self.g1.T*self.g1
         self.sigmax = np.mat(np.array([[0,1,0],[1,0,0],[0,0,0]]))
         self.sigmay = np.mat(np.array([[0,-1j,0],[1j,0,0],[0,0,0]]))
         self.sigmaz = np.mat(np.array([[1,0,0],[0,-1,0],[0,0,0]]))
@@ -92,7 +83,7 @@ class OpticalBlochEquation3:
         H = H_a + H_af
         #define superoperator
         H_eff = -1j*np.mat(kron(self.I3,H) - kron(np.conj(H.T),self.I3))
-        L_eff = self.Gamma1*Dissipator(self.sigma1) + self.Gamma2*Dissipator(self.sigma2)
+        L_eff = self.Gamma1*Dissipator(self.sigma1) + self.Gamma2*Dissipator(self.sigma2) + self.GammaC*Dissipator(self.sigmaC)
         S = H_eff+L_eff
         return S
 
@@ -256,8 +247,8 @@ class OpticalBlochEquation3:
 
 
 class STIRAP(OpticalBlochEquation3):
-    def __init__(self,Omega1,Omega2,Delta,delta,t1,t2,tau1,tau2,tmax,init_state,Gamma1=0,Gamma2=0):
-        OpticalBlochEquation3.__init__(self,Omega1,Omega2,Delta,delta,Gamma1,Gamma2,tmax,init_state)
+    def __init__(self,Omega1,Omega2,Delta,delta,t1,t2,tau1,tau2,tmax,init_state,Gamma1=0,Gamma2=0,GammaC=0):
+        OpticalBlochEquation3.__init__(self,Omega1,Omega2,Delta,delta,Gamma1,Gamma2,GammaC,tmax,init_state)
         self.t1 = t1
         self.t2 = t2
         self.tau1 = tau1
@@ -271,7 +262,7 @@ class STIRAP(OpticalBlochEquation3):
         H = H_a + H_af
         #define superoperator
         H_eff = -1j*np.mat(kron(self.I3,H) - kron(np.conj(H.T),self.I3))
-        L_eff = self.Gamma1*Dissipator(self.sigma1) + self.Gamma2*Dissipator(self.sigma2)
+        L_eff = self.Gamma1*Dissipator(self.sigma1) + self.Gamma2*Dissipator(self.sigma2) + self.GammaC*Dissipator(self.sigmaC)
         S = H_eff+L_eff
         return S
 
@@ -299,8 +290,8 @@ class STIRAP(OpticalBlochEquation3):
 
 
 class EIT(OpticalBlochEquation3):
-    def __init__(self,Omega1,Omega2,Delta,delta,Gamma1,Gamma2,tmax,init_state,DeltaRange):
-        OpticalBlochEquation3.__init__(self,Omega1,Omega2,Delta,delta,Gamma1,Gamma2,tmax,init_state)
+    def __init__(self,Omega1,Omega2,Delta,delta,Gamma1,Gamma2,GammaC,tmax,init_state,DeltaRange):
+        OpticalBlochEquation3.__init__(self,Omega1,Omega2,Delta,delta,Gamma1,Gamma2,GammaC,tmax,init_state)
         # EIT state
         self.state_EIT = np.mat(init_state.reshape(9,1)) #matrix array
         #define detuning step
@@ -318,7 +309,7 @@ class EIT(OpticalBlochEquation3):
         #H = 0.5*np.array([[0,0,self.Omega1],[0,-2*Delta,self.Omega2],[np.conj(self.Omega1),np.conj(self.Omega2),-2*(Delta-self.delta)]])
         #define superoperator
         H_eff = -1j*np.mat(kron(self.I3,H) - kron(np.conj(H.T),self.I3))
-        L_eff = self.Gamma1*Dissipator(self.sigma1) + self.Gamma2*Dissipator(self.sigma2)
+        L_eff = self.Gamma1*Dissipator(self.sigma1) + self.Gamma2*Dissipator(self.sigma2) + self.GammaC*Dissipator(self.sigmaC)
         S = H_eff+L_eff
         return S
 
