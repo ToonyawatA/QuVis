@@ -14,7 +14,6 @@ matplotlib.rcParams['text.usetex'] = True
 from string import ascii_lowercase
 
 
-
 ##: Durham colour scheme
 
 cDUp = "#7E317B"  # Palatinate Purple
@@ -131,7 +130,7 @@ def white_to_transparency(img):
 def RGBfunc(rho,t_index):
     time_dim=1
     parameter_dim=1
-    mdim=3
+    mdim=2
     #Size of R,G,B
     h_dim = time_dim*(mdim+1)+1
     v_dim = parameter_dim*(mdim+1)+1
@@ -142,9 +141,9 @@ def RGBfunc(rho,t_index):
     peak = np.amax(abs(rho))
     for col in range (0,mdim):
         for row in range (0,mdim):
-            R[1+row,1+col]=getComplexColor(rho[col+3*row,t_index],peak)[0]
-            G[1+row,1+col]=getComplexColor(rho[col+3*row,t_index],peak)[1]
-            B[1+row,1+col]=getComplexColor(rho[col+3*row,t_index],peak)[2]
+            R[1+row,1+col]=getComplexColor(rho[col+2*row,t_index],peak)[0]
+            G[1+row,1+col]=getComplexColor(rho[col+2*row,t_index],peak)[1]
+            B[1+row,1+col]=getComplexColor(rho[col+2*row,t_index],peak)[2]
 
     return np.dstack((R, G, B))
 
@@ -157,72 +156,57 @@ def Dissipator(sigma):
     return np.mat(kron(np.conj(sigma),sigma) - 0.5*kron(I,np.conj(sigma.T)*sigma) - 0.5*kron((np.conj(sigma.T)*sigma).T,I))  
 
 
-class OpticalBlochEquation3:
-    ### init ###
-    def __init__(self,Omega1,Omega2,Delta,delta,Gamma1,Gamma2,GammaC,tmax,init_state,DeltaRange=None):
-        self.Omega1 = Omega1
-        self.Omega2 = Omega2
+
+class OpticalBlochEquation2:
+    ###init###
+    def __init__(self,Omega,Delta,Gamma,tmax,init_state,DeltaRange=None):
+        self.Omega = Omega
         self.Delta = Delta
-        self.delta = delta
-        self.Gamma1 = Gamma1
-        self.Gamma2 = Gamma2
-        self.GammaC = GammaC
+        self.Gamma = Gamma
         self.tmax = tmax
         self.Dmax = DeltaRange
-        self.init_state = np.mat(init_state.reshape(9,1)) #matrix array
+        self.init_state = np.mat(init_state.reshape(4,1)) #matrix array
         #define radius
         self.radius = 3.0
         #define quantum state
-        self.g1 = np.mat(np.array([1,0,0]))
-        self.g2 = np.mat(np.array([0,1,0]))
-        self.e = np.mat(np.array([0,0,1]))
+        self.g = np.mat(np.array([1,0]))
+        self.e = np.mat(np.array([0,1]))
         #define matrices
-        self.sigma1 = self.g1.T*self.e
-        self.sigma2 = self.g2.T*self.e
-        self.sigmaC = self.g2.T*self.g2 - self.g1.T*self.g1
-        self.sigmax = np.mat(np.array([[0,1,0],[1,0,0],[0,0,0]]))
-        self.sigmay = np.mat(np.array([[0,-1j,0],[1j,0,0],[0,0,0]]))
-        self.sigmaz = np.mat(np.array([[1,0,0],[0,-1,0],[0,0,0]]))
-        self.sigma0 = np.mat(np.array([[0,0,0],[0,0,0],[0,0,1]]))
-        self.I3 = np.mat(np.eye(3))
+        self.sigma = self.g.T*self.e
+        self.sigmax = np.mat(np.array([[0,1],[1,0]]))
+        self.sigmay = np.mat(np.array([[0,-1j],[1j,0]]))
+        self.sigmaz = np.mat(np.array([[1,0],[0,-1]]))
+        self.I2 = np.mat(np.eye(2))
         #define time step and
         self.numt = 1000
         self.time = np.linspace(0,self.tmax,self.numt)
         self.dt = self.time[1]-self.time[0]
-
-    def DensityMatrix(self):
-        return self.state.reshape(3,3)
 
     def LBsuperoperator(self,Delta=None):
         if Delta is None:
             Delta = self.Delta
         
         ### Hamiltonian for three-level with two fields 
-        H_a = Delta*self.g1.T*self.g1 + (Delta-self.delta)*self.g2.T*self.g2
-        H_af = 0.5*self.Omega1*(self.sigma1 + np.conj(self.sigma1.T)) + 0.5*self.Omega2*(self.sigma2 + np.conj(self.sigma2.T))
+        H_a = -0.5*Delta*self.g.T*self.g + 0.5*self.e.T*self.e
+        H_af = 0.5*self.Omega*(self.sigma + np.conj(self.sigma.T)) 
         H = H_a + H_af
-        #H = 0.5*np.array([[0,0,self.Omega1],[0,-2*Delta,self.Omega2],[np.conj(self.Omega1),np.conj(self.Omega2),-2*(Delta-self.delta)]])
-
+        
         #define superoperator
-        H_eff = -1j*np.mat(kron(self.I3,H) - kron(np.conj(H.T),self.I3))
-        L_eff = self.Gamma1*Dissipator(self.sigma1) + self.Gamma2*Dissipator(self.sigma2) + self.GammaC*Dissipator(self.sigmaC)
+        H_eff = -1j*np.mat(kron(self.I2,H) - kron(np.conj(H.T),self.I2))
+        L_eff = self.Gamma*Dissipator(self.sigma) 
         S = H_eff+L_eff
-        return S
+        return S   
 
     def LBDiagonalise(self,Delta=None):
-        '''
-        #define Hamiltonian
-        evals, evecs = eig(self.LBsuperoperator())
-        evecs = np.mat(evecs)
-        '''
         if Delta is None:
             Delta = self.Delta
         #diagonalize Hamiltonian
         evals, evecs = eig(self.LBsuperoperator(Delta))
         evecs = np.mat(evecs)
-        return evals, evecs
+        return evals, evecs 
 
     def getNextState(self,Delta=None):
+        ###
         if Delta is None:
             Delta = self.Delta
         self.state = self.LBDiagonalise(Delta)[1]*np.mat(np.diag(np.exp(self.LBDiagonalise(Delta)[0]*self.dt)))*np.linalg.inv(self.LBDiagonalise(Delta)[1])*self.state
@@ -230,70 +214,33 @@ class OpticalBlochEquation3:
     def getState_at_t(self,Delta,t):
         return self.LBDiagonalise(Delta)[1]*np.mat(np.diag(np.exp(self.LBDiagonalise(Delta)[0]*t)))*np.linalg.inv(self.LBDiagonalise(Delta)[1])*self.init_state
 
-    """
-    def Initialise_state(self):
-        self.state = self.init_state #matrix array
-        self.state_arr = np.zeros(9)
-    """
-
     def Initialise(self):
         #define bloch vector and probability array
         self.state = self.init_state #matrix array
-        self.state_arr = np.zeros(9) #state array (9*1 array)
+        self.state_arr = np.zeros(4) #state array (4*1 array)
         self.bloch1 = np.zeros(3)
-        self.bloch2 = np.zeros(3)
-        self.probability = np.zeros(3)
-    """
-    def saveTrajectory_state(self):
-        rho = np.squeeze(np.asarray((self.state)))
-        self.state_arr = np.column_stack((self.state_arr,rho))
-    """
+        self.probability = np.zeros(2)
 
     def saveTrajectory(self):
-        #save state 9*1 array
+        #save state 4*1 array
         rho = np.squeeze(np.asarray((self.state)))
         self.state_arr = np.column_stack((self.state_arr,rho))
         #state probability
-        pg1 = np.real(self.state[0,0])
-        pg2 = np.real(self.state[4,0])
-        pe = np.real(self.state[8,0])
+        pg = np.real(self.state[0,0])
+        pe = np.real(self.state[3,0])
         #density matrix
-        DM = self.state.reshape(3,3)
+        DM = self.state.reshape(2,2)
         #bloch1
         u1 = np.real(np.trace(self.sigmax*DM))
         v1 = np.real(np.trace(self.sigmay*DM))
         w1 = np.real(np.trace(self.sigmaz*DM))
-        #bloch2
-        r2 = np.real(np.trace(self.sigma0*DM))
-        if(r2==1):
-            u2 = r2*np.cos(0.5*pi*r2)
-            v2 = r2*np.cos(0.5*pi*r2)
-            w2 = r2*np.sin(0.5*pi*r2)
-        else:
-            u2 = r2*np.cos(0.5*pi*r2)*(np.real(self.state[2,0])/np.abs(self.state[2,0])) if np.abs(self.state[2,0])!=0 else 0
-            v2 = r2*np.cos(0.5*pi*r2)*(np.imag(self.state[2,0])/np.abs(self.state[2,0])) if np.abs(self.state[2,0])!=0 else 0
-            w2 = r2*np.sin(0.5*pi*r2) if np.abs(self.state[2,0])!=0 else 0
-        parray = np.array([pg1,pg2,pe])
+        #arrange arrays 
+        parray = np.array([pg,pe])
         b1array = np.array([u1,v1,w1])
-        b2array = np.array([u2,v2,w2])
         self.bloch1 = np.vstack((self.bloch1,b1array))
-        self.bloch2 = np.vstack((self.bloch2,b2array))
         self.probability = np.vstack((self.probability,parray))
 
-    """
-    def Trajectory_state(self,Delta=None):
-        ###
-        if Delta is None :
-            Delta = self.Delta
-        self.Initialise_state()
-        for i in range(self.numt):
-            self.saveTrajectory_state()
-            self.getNextState(Delta)
-        self.state_arr = np.delete(self.state_arr,0,1)
-    """
-
     def Trajectory(self,Delta=None):
-        ###
         if Delta is None :
             Delta = self.Delta
         self.Initialise()
@@ -301,47 +248,21 @@ class OpticalBlochEquation3:
             self.saveTrajectory()
             self.getNextState(Delta)
         self.bloch1 = self.radius*self.bloch1
-        self.bloch2 = self.radius*self.bloch2
         self.bloch1 = np.delete(self.bloch1,0,0)
-        self.bloch2 = np.delete(self.bloch2,0,0)
         self.probability = np.delete(self.probability,0,0)
         self.state_arr = np.delete(self.state_arr,0,1)
 
-    def makePlot(self,population=False,susceptibility=False,rabi=False,savefig=None):
-        poplabel = [r'$|g_1\rangle$',r'$|g_2\rangle$',r'$|e\rangle$']
-        rabilabel = ['Pulse1','Pulse2']
-        chilabel = ['Dispersion','Absorption']
-        if(population):
-            plt.figure()
-            for i in range(3):
-                plt.plot(self.time,self.probability[:,i],label=poplabel[i])
-            plt.xlabel(r'Time ($t$)')
-            plt.ylabel(r'Population')
-            plt.legend()
-            if savefig is not None:
-                plt.savefig(savefig[0],dpi=120)
-            plt.show()
-        if(susceptibility):
-            plt.figure()
-            plt.plot(self.detuning,self.rhoba_r,label='Dispersion')
-            plt.plot(self.detuning,self.rhoba_i,label='Absorption')
-            plt.xlabel(r'Detuning ($\Delta$)')
-            plt.ylabel(r'Susceptibility')
-            plt.legend()
-            if savefig is not None:
-                plt.savefig(savefig[1],dpi=120)
-            plt.show()
-        if(rabi):
-            plt.figure()
-            plt.plot(self.time,self.omega1,label='Pulse1')
-            plt.plot(self.time,self.omega2,label='Pulse2')
-            plt.xlabel(r'Time ($t$)')
-            plt.ylabel(r'Rabi Frequency')
-            plt.legend()
-            if savefig is not None:
-                plt.savefig(savefig[2],dpi=120)
-            plt.show()
-     
+    def makePlot(self,savefig=None):
+        poplabel = [r'$|g\rangle$',r'$|e\rangle$']
+        plt.figure()
+        for i in range(2):
+            plt.plot(self.time,self.probability[:,i],label=poplabel[i])
+        plt.xlabel(r'Time ($t$)')
+        plt.ylabel(r'Population')
+        plt.legend()
+        if savefig is not None:
+            plt.savefig(savefig,dpi=120)
+        plt.show()
 
     def makePyvista(self,t_index=None,rows=1,columns=1,off_screen=False,savefig=None):
         if t_index is None: 
@@ -395,7 +316,6 @@ class OpticalBlochEquation3:
         ### Spline plots
         #Get trajectory
         traj1 = self.bloch1
-        traj2 = self.bloch2
         #begin pyvista plot
         p = pv.Plotter(off_screen,shape=(rows,columns), multi_samples=1, window_size=(res*900,res*600))
         p.set_background(dsk, top="white")
@@ -426,11 +346,6 @@ class OpticalBlochEquation3:
                 spline1 = pv.Spline(points1, 1000)
                 spline1["scalars"] = np.arange(spline1.n_points)
                 tubes1=spline1.tube(radius=0.1)
-                #Sline2 for vector2
-                points2 = traj2[0:int(tt_index[k]),:]
-                spline2 = pv.Spline(points2, 1000)
-                spline2["scalars"] = np.arange(spline2.n_points)
-                tubes2=spline2.tube(radius=0.1)
                 #
                 p.add_mesh(tubes1,color=dr,smooth_shading=True,show_scalar_bar=False)
                 ept1=pv.Sphere(center=(points1[-1,:]), radius=0.2)
@@ -438,12 +353,6 @@ class OpticalBlochEquation3:
                 arrow=pv.Arrow(start=(0.0, 0.0, 0.0), direction=(points1[-1,:]), tip_length=0.25, tip_radius=0.1, tip_resolution=20, shaft_radius=0.05, shaft_resolution=20, scale=np.sqrt(sum(points1[-1,:]**2)))
                 p.add_mesh(arrow, opacity=1.0, color=db, smooth_shading=True)
                 #
-                p.add_mesh(tubes2,color=dy,smooth_shading=True,show_scalar_bar=False)
-                ept2=pv.Sphere(center=(points2[-1,:]), radius=0.2)
-                p.add_mesh(ept2, opacity=0.5, color=dy, smooth_shading=True)
-                arrow=pv.Arrow(start=(0.0, 0.0, 0.0), direction=(points2[-1,:]), tip_length=0.25, tip_radius=0.1, tip_resolution=20, shaft_radius=0.05, shaft_resolution=20, scale=np.sqrt(sum(points2[-1,:]**2)))
-                p.add_mesh(arrow, opacity=0.5, color=db, smooth_shading=True)
-
                 k += 1
         #print(points[-1,:])
         p.enable_depth_peeling(10)
@@ -455,22 +364,22 @@ class OpticalBlochEquation3:
         #p.show(screenshot='test1.png')
         if savefig is not None:
             p.show(screenshot=savefig)
-        p.show()
+        else:
+            p.show()
         
 
     ####### Density matrix visualization #######
 
-    def DMVis(self,DRange=5,rows=1,columns=1,t_index=None,Delta=None,delta=None,Full_Visualize=False,Interactive=False,savefig=None):
+    def DMVis(self,DRange=5,rows=1,columns=1,t_index=None,Delta=None,Full_Visualize=False,Interactive=False,savefig=None):
         t_index = self.numt if t_index is None else t_index
         Delta = self.Delta if Delta is None else Delta
-        delta = self.delta if delta is None else delta
         #generate time for multiplots
         if(t_index>self.numt):
             raise ValueError('t_index must not exceed %d' %self.numt)
         else:
             tt_index = np.linspace(0,t_index,rows*columns+1)
         #define dimension of system
-        mdim = 3
+        mdim = 2
         #define color for text
         di=[0.0/255.0,42.0/255.0,65.0/255.0] # Durham ink
 
@@ -503,9 +412,9 @@ class OpticalBlochEquation3:
                     t_index=10*h_index
                     for col in range (0,mdim):
                         for row in range (0,mdim):
-                            R[(mdim+1)*v_index+1+row,(mdim+1)*h_index+1+col]=getComplexColor(rho[col+3*row,t_index],peak)[0]
-                            G[(mdim+1)*v_index+1+row,(mdim+1)*h_index+1+col]=getComplexColor(rho[col+3*row,t_index],peak)[1]
-                            B[(mdim+1)*v_index+1+row,(mdim+1)*h_index+1+col]=getComplexColor(rho[col+3*row,t_index],peak)[2]
+                            R[(mdim+1)*v_index+1+row,(mdim+1)*h_index+1+col]=getComplexColor(rho[col+2*row,t_index],peak)[0]
+                            G[(mdim+1)*v_index+1+row,(mdim+1)*h_index+1+col]=getComplexColor(rho[col+2*row,t_index],peak)[1]
+                            B[(mdim+1)*v_index+1+row,(mdim+1)*h_index+1+col]=getComplexColor(rho[col+2*row,t_index],peak)[2]
 
             RGB=np.dstack((R, G, B))
             plt.imshow(RGB)
@@ -549,9 +458,9 @@ class OpticalBlochEquation3:
                     for h_index in range(0,columns): # h_index is no. of columns
                         for col in range (0,mdim):
                             for row in range (0,mdim):
-                                R[1+row,1+col]=getComplexColor(rho[col+3*row,int(tt_index[k])],peak)[0]
-                                G[1+row,1+col]=getComplexColor(rho[col+3*row,int(tt_index[k])],peak)[1]
-                                B[1+row,1+col]=getComplexColor(rho[col+3*row,int(tt_index[k])],peak)[2]
+                                R[1+row,1+col]=getComplexColor(rho[col+2*row,int(tt_index[k])],peak)[0]
+                                G[1+row,1+col]=getComplexColor(rho[col+2*row,int(tt_index[k])],peak)[1]
+                                B[1+row,1+col]=getComplexColor(rho[col+2*row,int(tt_index[k])],peak)[2]
                         
                         RGB=np.dstack((R, G, B))
                         label=ascii_lowercase[(4*v_index+h_index)]
@@ -564,106 +473,13 @@ class OpticalBlochEquation3:
                 plt.show()
                 
 
+    
 
-###### STIRAP #########
-
-class STIRAP(OpticalBlochEquation3):
-    def __init__(self,Omega1,Omega2,Delta,delta,t1,t2,tau1,tau2,tmax,init_state,Gamma1=0,Gamma2=0,GammaC=0):
-        OpticalBlochEquation3.__init__(self,Omega1,Omega2,Delta,delta,Gamma1,Gamma2,GammaC,tmax,init_state)
-        self.t1 = t1
-        self.t2 = t2
-        self.tau1 = tau1
-        self.tau2 = tau2
-        self.omega1 = np.abs(np.real(self.Omega1*np.exp((-1/(2*self.tau1**2))*(self.time-self.t1)**2)))
-        self.omega2 = np.abs(np.real(self.Omega2*np.exp((-1/(2*self.tau2**2))*(self.time-self.t2)**2)))
-
-    def LBsuperoperator(self,omega1,omega2):
-        H_a = self.Delta*self.g1.T*self.g1 + (self.Delta-self.delta)*self.g2.T*self.g2
-        H_af = 0.5*omega1*(self.sigma1 + np.conj(self.sigma1.T)) + 0.5*omega2*(self.sigma2 + np.conj(self.sigma2.T))
-        H = H_a + H_af
-        #define superoperator
-        H_eff = -1j*np.mat(kron(self.I3,H) - kron(np.conj(H.T),self.I3))
-        L_eff = self.Gamma1*Dissipator(self.sigma1) + self.Gamma2*Dissipator(self.sigma2) + self.GammaC*Dissipator(self.sigmaC)
-        S = H_eff+L_eff
-        return S
-
-    def LBDiagonalise(self,omega1,omega2):
-        #define Hamiltonian
-        evals, evecs = eig(self.LBsuperoperator(omega1,omega2))
-        evecs = np.mat(evecs)
-        return evals, evecs
-
-    def getNextState(self,omega1,omega2):
-        self.state = self.LBDiagonalise(omega1,omega2)[1]*np.mat(np.diag(np.exp(self.LBDiagonalise(omega1,omega2)[0]*self.dt)))*np.linalg.inv(self.LBDiagonalise(omega1,omega2)[1])*self.state
-
-    def Trajectory(self):
-        #define time array
-        self.Initialise()
-        for i in range(self.numt):
-            self.saveTrajectory()
-            self.getNextState(self.omega1[i],self.omega2[i])
-        self.bloch1 = self.radius*self.bloch1
-        self.bloch2 = self.radius*self.bloch2
-        self.bloch1 = np.delete(self.bloch1,0,0)
-        self.bloch2 = np.delete(self.bloch2,0,0)
-        self.probability = np.delete(self.probability,0,0)
+    
 
 
-######## EIT ###########
+    
 
 
-class EIT(OpticalBlochEquation3):
-    def __init__(self,Omega1,Omega2,Delta,delta,Gamma1,Gamma2,tmax,init_state,DeltaRange,GammaC=0.0):
-        OpticalBlochEquation3.__init__(self,Omega1,Omega2,Delta,delta,Gamma1,Gamma2,GammaC,tmax,init_state,DeltaRange)
-        # EIT state
-        self.state_EIT = np.mat(init_state.reshape(9,1)) #matrix array
-        #define detuning step
-        self.numd = 1000
-        self.detuning = np.linspace(self.Delta-self.Dmax,self.Delta+self.Dmax,self.numd)
 
-    '''
-    def LBsuperoperator_EIT(self,Delta=None):
-        if Delta is None:
-            Delta = self.Delta
-        H_a = Delta*self.g1.T*self.g1 + (Delta-self.delta)*self.g2.T*self.g2
-        H_af = 0.5*self.Omega1*(self.sigma1 + np.conj(self.sigma1.T)) + 0.5*self.Omega2*(self.sigma2 + np.conj(self.sigma2.T))
-        H = H_a + H_af
-        #H = 0.5*np.array([[0,0,self.Omega1],[0,-2*Delta,self.Omega2],[np.conj(self.Omega1),np.conj(self.Omega2),-2*(Delta-self.delta)]])
-        #define superoperator
-        H_eff = -1j*np.mat(kron(self.I3,H) - kron(np.conj(H.T),self.I3))
-        L_eff = self.Gamma1*Dissipator(self.sigma1) + self.Gamma2*Dissipator(self.sigma2) + self.GammaC*Dissipator(self.sigmaC)
-        S = H_eff+L_eff
-        return S
-
-    def LBDiagonalise_EIT(self,Delta=None):
-        if Delta is None:
-            Delta = self.Delta
-        #diagonalize Hamiltonian
-        evals, evecs = eig(self.LBsuperoperator_EIT(Delta))
-        evecs = np.mat(evecs)
-        return evals, evecs
-
-    '''
-
-    def getNextState_EIT(self,Delta=None):
-        if Delta is None:
-            Delta = self.Delta
-        self.state_EIT = self.LBDiagonalise(Delta)[1]*np.mat(np.diag(np.exp(self.LBDiagonalise(Delta)[0]*self.tmax)))*np.linalg.inv(self.LBDiagonalise(Delta)[1])*self.init_state
-
-    def Initialise_EIT(self):
-        self.rhoba_r = np.zeros(1)
-        self.rhoba_i = np.zeros(1)
-
-    def saveSusceptibility(self):
-        rhobar = np.real(self.state_EIT[2])
-        rhobai = -1*np.imag(self.state_EIT[2])
-        self.rhoba_r = np.append(self.rhoba_r,rhobar)
-        self.rhoba_i = np.append(self.rhoba_i,rhobai)
-
-    def Susceptibility(self):
-        self.Initialise_EIT()
-        for i in range(self.numd):
-            self.getNextState_EIT(self.detuning[i])
-            self.saveSusceptibility()
-        self.rhoba_r = np.delete(self.rhoba_r,0)
-        self.rhoba_i = np.delete(self.rhoba_i,0)
+    
